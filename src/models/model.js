@@ -1,86 +1,67 @@
-const mysql = require('mysql2');
+import "dotenv/config";
+import mysql from "mysql2/promise";
 
-const connection = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT
+const pool = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: Number(process.env.DB_PORT)
 });
 
-function cadastrar (nome,email){
-    try {
-        const { id } = req.params;
-        const { nome, email } = req.body;
+async function cadastrar(nome, email) {
+    const [result] = await pool.query(
+        "INSERT INTO usuarios (nome, email) VALUES (?, ?)",
+        [nome, email]
+    );
 
-        const [result] = await pool.query(
-            "UPDATE usuarios SET nome = COALESCE(?, nome), email = COALESCE(?, email) WHERE id = ?",
-            [nome || null, email || null, id]
-        );
-        
-        if(!result.affectedRows) {
-            return res.status(404).json({erro: "Usuario não encontrado"});
-        }
-        res.json({ mensagem: "Atualizado com sucesso" });
-    }catch(e) {
-        res.status(500).json({ erro: "Falha ao atualizar usuario"});
-    }
+    return {
+        id: result.insertId,
+        nome,
+        email
+    };
 }
 
-function listar (){
-    try {
-        const [rows] = await pool.query("SELECT * FROM usuarios");
-        res.json(rows);
-    } catch (e) {
-        res.status(500).json({ erro: "Falha ao listar usuarios"});
-    }
+async function listar() {
+    const [rows] = await pool.query(
+        "SELECT * FROM usuarios"
+    );
+
+    return rows;
 }
 
-function atualizar(id){
-    try {
-        const { id } = req.params;
-        const { nome, email } = req.body;
+async function atualizar(id, nome, email) {
+    const [result] = await pool.query(
+        `UPDATE usuarios
+         SET nome = COALESCE(?, nome),
+             email = COALESCE(?, email)
+         WHERE id = ?`,
+        [nome || null, email || null, id]
+    );
 
-        const [result] = await pool.query(
-            "UPDATE usuarios SET nome = COALESCE(?, nome), email = COALESCE(?, email) WHERE id = ?",
-            [nome || null, email || null, id]
-        );
-        
-        if(!result.affectedRows) {
-            return res.status(404).json({erro: "Usuario não encontrado"});
-        }
-        res.json({ mensagem: "Atualizado com sucesso" });
-    }catch(e) {
-        res.status(500).json({ erro: "Falha ao atualizar usuario"});
+    if (result.affectedRows === 0) {
+        return null;
     }
+
+    return {
+        id,
+        nome,
+        email
+    };
 }
 
-function deletar(id){
-    try {
-        const { id } = req.params;
+async function deletar(id) {
+    const [result] = await pool.query(
+        "DELETE FROM usuarios WHERE id = ?",
+        [id]
+    );
 
-        const [result] = await pool.query(
-            "DELETE FROM usuarios WHERE id = ?",
-            [id]
-        );
-
-        if (!result.affectedRows) {
-            return res.status(404).json({ erro:  "Usuário não encontrado"});
-        }
-
-        res.json({ mensagem: "Deletado com sucesso" });
-    }catch(e) {
-        res.status(500).json({ erro: "Falha ao deletar usuario"});
-    }
+    return result.affectedRows > 0;
 }
 
-
-
-
-
-module.exports = {
+export {
     cadastrar,
     listar,
     atualizar,
     deletar
-}
+};
